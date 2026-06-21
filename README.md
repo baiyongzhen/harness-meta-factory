@@ -31,7 +31,7 @@ harness-meta-factory/
 ├── skills/
 │   └── harness/                    ← 핵심: 하네스 생성 메타 스킬
 │       ├── SKILL.md                    (스킬 본문 — Phase 0~7 워크플로우)
-│       └── references/                 (16개 참조 문서)
+│       └── references/                 (14개 참조 문서)
 │           ├── platform-paths.md           플랫폼별 파일 경로 정의
 │           ├── platform-orchestration.md   오케스트레이션 API 패턴
 │           ├── platform-components.md      플랫폼별 구성 요소 + SubAgent 안티패턴
@@ -39,15 +39,13 @@ harness-meta-factory/
 │           ├── platform-rules.md           Rules 설계 (CLAUDE.md/AGENTS.md/.mdc)
 │           ├── platform-commands.md        Slash Commands + Gemini !{shell} 패턴
 │           ├── platform-plugin.md          Plugin/Extension 패키징·배포
-│           ├── platform-learning.md        Continuous Learning 설계
 │           ├── component-templates.md      agents/skills/hooks 템플릿
 │           ├── agent-design-patterns.md    6가지 아키텍처 패턴
 │           ├── orchestrator-template.md    Claude 오케스트레이터 템플릿
 │           ├── skill-writing-guide.md      스킬 작성 가이드 (Scripts §10 포함)
 │           ├── skill-testing-guide.md      스킬 테스트 방법론
 │           ├── qa-agent-guide.md           QA 에이전트 설계 가이드
-│           ├── team-examples.md            팀 구성 예시 6가지
-│           └── continuous-learning-templates.md  학습 스크립트 템플릿
+│           └── team-examples.md            팀 구성 예시 6가지
 │
 ├── scripts/
 │   └── validate-harness.py         ← Docker 검증 파이프라인
@@ -229,15 +227,6 @@ Claude Code와 Cursor 모두에서 사용할 수 있는
 
 공통 스킬은 `.agents/skills/`에 1회 생성,
 플랫폼별 agents/hooks/rules만 분리 생성됩니다.
-
-### Continuous Learning 포함
-
-```
-Rust CLI 도구 개발 하네스를 구성해주세요.
-학습 기능(continuous learning)도 포함해주세요.
-```
-
-추가 생성: `observe.py`, `instinct-cli.py`, `compact-suggest.py` + 플랫폼별 훅 등록.
 
 ---
 
@@ -481,7 +470,6 @@ TEST_PLATFORM=all \
 | [`references/platform-rules.md`](skills/harness/references/platform-rules.md) | Rules 설계 (CLAUDE.md / AGENTS.md / .mdc) |
 | [`references/platform-commands.md`](skills/harness/references/platform-commands.md) | Slash Commands + Gemini `!{shell}` 패턴 |
 | [`references/platform-plugin.md`](skills/harness/references/platform-plugin.md) | Plugin / Extension 패키징·배포 |
-| [`references/platform-learning.md`](skills/harness/references/platform-learning.md) | Continuous Learning 설계 |
 
 ### 설계·작성 참조 문서
 
@@ -494,7 +482,6 @@ TEST_PLATFORM=all \
 | [`references/skill-writing-guide.md`](skills/harness/references/skill-writing-guide.md) | 스킬 작성 가이드 (Scripts §10 포함) |
 | [`references/skill-testing-guide.md`](skills/harness/references/skill-testing-guide.md) | 스킬 테스트 방법론 |
 | [`references/qa-agent-guide.md`](skills/harness/references/qa-agent-guide.md) | QA 에이전트 설계 가이드 |
-| [`references/continuous-learning-templates.md`](skills/harness/references/continuous-learning-templates.md) | Continuous Learning 스크립트 템플릿 |
 
 ### 검증 도구 링크
 
