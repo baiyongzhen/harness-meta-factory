@@ -1,0 +1,112 @@
+x-default-logging: &logging
+  driver: "json-file"
+  options:
+    max-size: "5m"
+    max-file: "2"
+
+x-common-env: &common-env
+  TZ: Asia/Seoul
+  EVAL_TOOLS_DIR: /opt/eval-tools
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY:-ollama}
+  HF_TOKEN: ${HF_TOKEN:-}
+  OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
+  AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT:-http://host.docker.internal:11434/v1}
+  AZURE_OPENAI_AUTH_MODE: ${AZURE_OPENAI_AUTH_MODE:-openai_compatible}
+
+x-common-volumes: &common-volumes
+  # 레포 루트를 /root/working 에 마운트 (compose 파일과 동일 위치)
+  - .:/root/working:rw
+  # SWE-bench / SkillsBench 등 Docker 기반 eval
+  - /var/run/docker.sock:/var/run/docker.sock
+
+services:
+  # ──────────────────────────────────────────────────────────
+  # 인터랙티브 셸 — 수동 탐색·디버깅용
+  # ──────────────────────────────────────────────────────────
+  harness-eval:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: harness-eval:latest
+    container_name: harness-eval
+    working_dir: /root/working
+    environment:
+      <<: *common-env
+    env_file:
+      - path: .env
+        required: false
+    volumes: *common-volumes
+    tty: true
+    stdin_open: true
+    logging: *logging
+
+  # ──────────────────────────────────────────────────────────
+  # harness-validate — 하네스 자동 검증 파이프라인
+  #   docker compose run --rm harness-validate
+  # ──────────────────────────────────────────────────────────
+  harness-validate:
+    image: harness-eval:latest
+    container_name: harness-validate
+    working_dir: /root/working
+    environment:
+      <<: *common-env
+      # 검증 대상 경로 (기본: 레포 루트 전체)
+      SKILL_DIRS: ${SKILL_DIRS:-.claude/skills .cursor/skills .gemini/skills .agents/skills .codex}
+      # SkillOpt 사용 여부 (LLM 필요 — 기본 비활성)
+      SKILLOPT_ENABLED: ${SKILLOPT_ENABLED:-false}
+      SKILLOPT_MODEL: ${SKILLOPT_MODEL:-llama3.2}
+    env_file:
+      - path: .env
+        required: false
+    volumes: *common-volumes
+    command: python3 /root/working/scripts/validate-harness.py
+    logging: *logging
+
+  # ──────────────────────────────────────────────────────────
+  # harness-test-validate — tests/ 임시 하네스 검증
+  #   docker compose run --rm harness-test-validate
+  #   특정 폴더: TEST_TARGET=tests/my-harness docker compose run --rm harness-test-validate
+  # ──────────────────────────────────────────────────────────
+  harness-test-validate:
+    image: harness-eval:latest
+    container_name: harness-test-validate
+    working_dir: /root/working
+    environment:
+      <<: *common-env
+      TEST_TARGET: ${TEST_TARGET:-tests/fastapi-jwt-keycloak-cursor}
+      TEST_PLATFORM: ${TEST_PLATFORM:-cursor}
+      SKILLOPT_ENABLED: ${SKILLOPT_ENABLED:-false}
+      SKILLOPT_MODEL: ${SKILLOPT_MODEL:-llama3.2}
+    env_file:
+      - path: .env
+        required: false
+    volumes: *common-volumes
+    command: >-
+      python3 /root/working/scripts/validate-harness.py
+      --target ${TEST_TARGET:-tests/fastapi-jwt-keycloak-cursor}
+      --platform ${TEST_PLATFORM:-cursor}
+    logging: *logging
+
+  # ──────────────────────────────────────────────────────────
+  # pytest — Python 스크립트 단위 테스트
+  #   docker compose run --rm harness-pytest
+  # ──────────────────────────────────────────────────────────
+  harness-pytest:
+    image: harness-eval:latest
+    container_name: harness-pytest
+    working_dir: /root/working
+    environment:
+      <<: *common-env
+    env_file:
+      - path: .env
+        required: false
+    volumes: *common-volumes
+    command: >
+      bash -c "
+        pytest tests/ -v --tb=short
+        2>&1 | tee eval-results/pytest-$(date +%Y%m%d-%H%M%S).log
+        || true
+      "
+    logging: *logging
