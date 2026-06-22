@@ -34,10 +34,18 @@ your-project/
 ├── CLAUDE.md
 ├── _workspace/
 └── .claude/
+    ├── settings.json          ← 환경변수·권한·모델 설정 (에이전트 팀 env 포함)
     ├── agents/{name}.md
     ├── skills/{name}/SKILL.md
     └── hooks/hooks.json
 ```
+
+**`.claude/settings.json` 생성 조건:**
+- 에이전트 팀(TeamCreate/SendMessage) 사용 시 → `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 필수
+- 도구 접근 제한이 필요한 에이전트 포함 시 → `permissions` 설정
+- 프로젝트 전용 환경변수(API 키 제외) 주입 시 → `env` 사용
+
+> 템플릿: `references/component-templates.md` `.claude/settings.json`
 
 ## Cursor
 

@@ -1,6 +1,6 @@
 # Platform Orchestration — 협업 API & 패턴 매핑
 
-> revfactory harness 6 패턴은 **설계는 동일**, **실행 API는 플랫폼별**이다.
+> harness 6 패턴은 **설계는 동일**, **실행 API는 플랫폼별**이다.
 
 ## 플랫폼별 협업 모델
 
@@ -31,7 +31,7 @@
 TeamCreate → TaskCreate(T01-T03) → SendMessage(to: each) → Read _workspace/02_*.md → final_report.md
 ```
 
-사전 요구: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`
+사전 요구: `.claude/settings.json` → `"env": {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"}` (템플릿: `references/component-templates.md` "Claude Settings")
 
 ## Cursor — Fan-out 예시
 
@@ -81,9 +81,36 @@ max_depth = 1
 
 | Phase | 내용 |
 |-------|------|
-| 0 | handoff 디렉터리 확인 (초기/부분/새 실행 분기) |
-| 1 | input + task-board 작성 |
+| 0 | handoff 디렉터리 확인 → **초기 / 부분 재실행 / 아카이브 후 새 실행** 분기 |
+| 1 | input + task-board 작성 (아카이브 후 빈 handoff 디렉터리에 생성) |
 | 2 | Fan-out (병렬 agent/spawn/task) |
 | 3 | Fan-in (통합 + conflicts + final-report + handoff) |
+
+**Phase 0 분기 조건 (플랫폼 공통):**
+
+| 상황 | 조건 | 처리 |
+|------|------|------|
+| 초기 실행 | handoff 디렉터리 없음 | 신규 생성 후 Phase 1 |
+| 부분 재실행 | handoff 있음 + `final-report.md` **없음** + 부분 수정 요청 | 해당 파일만 덮어쓰기 |
+| 아카이브 후 새 실행 | handoff 있음 + `final-report.md` **있음** | 아카이브 후 Phase 1 |
+| 강제 재시작 | handoff 있음 + 사용자 "새로 시작" 명시 | 아카이브 후 Phase 1 |
+
+**아카이브 명령 (플랫폼별):**
+
+```bash
+# Claude Code: _workspace/ → _workspace_archive/{TS}/
+ARCHIVE_TS=$(date +%Y%m%d_%H%M%S)
+mkdir -p _workspace_archive
+mv _workspace/ _workspace_archive/$ARCHIVE_TS/
+ls -dt _workspace_archive/*/ 2>/dev/null | tail -n +4 | xargs -r rm -rf
+
+# Cursor / Gemini / Codex: artifacts/ 파일 → artifacts/archive/{TS}/
+ARCHIVE_TS=$(date +%Y%m%d_%H%M%S)
+mkdir -p artifacts/archive/$ARCHIVE_TS
+find artifacts/ -maxdepth 1 -not -name archive -not -name '.' | xargs -I{} mv {} artifacts/archive/$ARCHIVE_TS/
+ls -dt artifacts/archive/*/ 2>/dev/null | tail -n +4 | xargs -r rm -rf
+```
+
+**보존 정책:** 아카이브 3개 초과 시 가장 오래된 것 자동 삭제.
 
 Handoff 파일명 컨벤션: `00-input.md`, `02_{role}.md`, `task-board.md`, `conflicts.md`, `final-report.md`, `handoff.md`

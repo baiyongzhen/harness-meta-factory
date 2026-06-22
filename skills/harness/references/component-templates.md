@@ -152,6 +152,62 @@ alwaysApply: true
 }
 ```
 
+## Claude Settings (`.claude/settings.json`)
+
+에이전트 팀 사용 여부에 따라 두 가지 기본 템플릿 중 하나를 선택한다.
+
+### 에이전트 팀 모드 (TeamCreate/SendMessage 사용 시 — 필수)
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  }
+}
+```
+
+### 에이전트 팀 + 권한 제어 (탐색/QA 에이전트 포함 시)
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git status:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(curl:*)",
+      "Bash(wget:*)"
+    ]
+  }
+}
+```
+
+### 서브 에이전트 전용 (TeamCreate 미사용, 가드레일만)
+
+```json
+{
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf:*)"
+    ]
+  }
+}
+```
+
+> ⚠️ API 키·시크릿은 `settings.json`에 넣지 않는다. `.env` 파일 또는 시스템 환경변수를 사용한다.
+> 설정 키 상세: `references/platform-components.md` "Claude Code Settings"
+
+---
+
 ## Claude Hooks (`.claude/hooks/hooks.json`)
 
 ```json
@@ -194,13 +250,19 @@ alwaysApply: true
 
 ```markdown
 # Artifacts
-| File | Purpose |
-|------|---------|
+| File / Directory | Purpose |
+|------------------|---------|
 | 00-input.md | User request / scope |
 | task-board.md | Task status |
 | 02_*.md | Agent outputs |
-| final-report.md | Integrated result |
+| final-report.md | Integrated result (완료 마커) |
 | handoff.md | Next session context |
+| archive/{YYYYMMDD_HHMMSS}/ | 이전 실행 보관 (최대 3개 유지) |
+
+## Archive Policy
+- `final-report.md` 존재 상태에서 새 실행 시작 → 현재 파일을 `archive/{TS}/`로 이동
+- 아카이브 3개 초과 시 가장 오래된 것 자동 삭제
+- 부분 재실행(`final-report.md` 없음)은 아카이브 없이 해당 파일만 덮어쓰기
 ```
 
 ## Shared scripts (`.agents/skills/{name}/scripts/`)

@@ -1,5 +1,69 @@
 # Platform Components — Rules, Hooks, Commands, Skill-Agent 연결
 
+## Claude Code Settings (`.claude/settings.json`)
+
+프로젝트 단위 Claude Code 동작을 제어한다. 하네스 구성 시 **에이전트 팀 또는 권한 제한이 필요하면 반드시 생성**한다.
+
+### 설정 키
+
+| 키 | 용도 | 하네스 생성 조건 |
+|----|------|----------------|
+| `env` | 세션 환경변수 주입 | 에이전트 팀 사용 시 필수 |
+| `permissions.allow` | 허용할 도구·명령 패턴 | 도구 접근 제한 에이전트 포함 시 |
+| `permissions.deny` | 차단할 도구·명령 패턴 | 위험 명령(rm -rf 등) 방지 가드레일 |
+| `model` | 기본 모델 지정 | 프로젝트 전체 모델 고정 시 |
+
+### 에이전트 팀 필수 설정
+
+`TeamCreate` / `SendMessage` 를 사용하는 하네스는 반드시 이 설정을 포함해야 한다.
+환경변수를 셸에서 직접 설정하면 세션마다 수동 설정이 필요하지만, `settings.json`에 기록하면 프로젝트를 열 때 자동 적용된다.
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  }
+}
+```
+
+> ⚠️ `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` 없이 `TeamCreate`를 호출하면 오류 발생.
+
+### 권한 제어 패턴
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Read",
+      "Glob",
+      "Grep"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(curl:*)",
+      "Bash(wget:*)"
+    ]
+  }
+}
+```
+
+읽기 전용 탐색 에이전트(QA, 리서치)에 적합. `permissions`를 설정하면 해당 프로젝트에서 에이전트가 사용할 수 있는 도구가 제한된다.
+
+### 범위 우선순위
+
+| 범위 | 경로 | 우선순위 |
+|------|------|----------|
+| 사용자 전역 | `~/.claude/settings.json` | 낮음 |
+| 프로젝트 | `.claude/settings.json` | 높음 (전역 덮어쓰기) |
+
+> 시크릿(API 키 등)은 `settings.json`에 넣지 않는다. 환경변수나 `.env` 파일을 사용한다.
+
+> 전체 템플릿: `references/component-templates.md` `.claude/settings.json`
+
+---
+
 ## Rules (영구 지시)
 
 | 플랫폼 | 위치 | 형식 |
