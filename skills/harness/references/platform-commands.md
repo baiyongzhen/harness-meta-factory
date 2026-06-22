@@ -21,7 +21,7 @@
 | **Claude Code** | Skills 우선 권장 | `.claude/commands/*.md` | Markdown | `/command-name` |
 | **Cursor** | Skills/`@` 우선 | `.cursor/commands/*.md` | Markdown | `/command-name` |
 | **Gemini CLI** | ✅ 동적 기능 풍부 | `.gemini/commands/*.toml` | TOML | `/command-name` |
-| **Codex** | ✅ 자동 트리거 | `.codex/commands/*.md` | Markdown | `$command-name` |
+| **Codex** | Skills 활용 (별도 commands 폴더 없음) | `.agents/skills/{name}/SKILL.md` | Markdown (SKILL.md) | `$skill-name` |
 
 ---
 
@@ -189,23 +189,54 @@ prompt = """
 
 ---
 
-## Codex — `.codex/commands/`
+## Codex — Skills로 Commands 대체
+
+Codex에는 별도 commands 폴더가 없다. **Skill = 반복 워크플로 단축키**이며, `$skill-name` 또는 `/skills` 메뉴로 호출한다.
 
 ### 구조
 
 ```
-.codex/
-└── commands/
-    ├── commit.md        # $commit
-    └── review.md        # $review
+.agents/skills/
+├── commit/
+│   └── SKILL.md        # $commit
+└── deploy/
+    ├── SKILL.md         # $deploy
+    └── agents/
+        └── openai.yaml  # allow_implicit_invocation 설정
 ```
 
-### `allow_implicit_invocation: false` — 수동 트리거만
+### 기본 Skill Command 예시
 
 ```markdown
 ---
-description: 스테이징 배포 실행
-allow_implicit_invocation: false   # 명시적 $deploy 호출 시만 실행
+name: commit
+description: 스테이징된 변경으로 Conventional Commit 메시지를 작성하고 커밋한다. "커밋해줘", "$commit" 요청 시 사용.
+---
+
+# $commit
+
+1. `git diff --staged` 확인 — 변경이 없으면 사용자에게 스테이징 요청
+2. Conventional Commits 형식으로 메시지 작성
+3. 사용자 확인 후 `git commit -m "..."` 실행
+```
+
+**호출:** `$commit` 또는 자연어 "이 변경 커밋해줘"
+
+### `allow_implicit_invocation: false` — 명시 호출만 허용
+
+부작용이 있는 명령(배포·DB 변경)은 AI가 자동 트리거하지 않도록 설정한다.
+
+**파일:** `.agents/skills/deploy/agents/openai.yaml`
+
+```yaml
+policy:
+  allow_implicit_invocation: false
+```
+
+```markdown
+---
+name: deploy
+description: 스테이징 환경에 배포한다. 반드시 "$deploy"로 명시 호출 시만 실행.
 ---
 
 # $deploy
@@ -216,7 +247,7 @@ allow_implicit_invocation: false   # 명시적 $deploy 호출 시만 실행
 4. 헬스체크: `curl https://staging.example.com/health`
 ```
 
-> `allow_implicit_invocation: false` 없으면 AI가 자동 판단으로 실행 — 부작용 있는 명령(배포·삭제)은 반드시 설정.
+> `allow_implicit_invocation: false`이면 사용자가 `$deploy`로 명시 호출할 때만 로드된다. 없으면 AI가 자동 판단으로 실행한다 — 부작용 있는 명령(배포·삭제)은 반드시 설정.
 
 ---
 
@@ -225,6 +256,7 @@ allow_implicit_invocation: false   # 명시적 $deploy 호출 시만 실행
 - [ ] 단순 프롬프트 단축키 → Commands, 다단계 절차 → Skill
 - [ ] Gemini: `!{shell}` 주입으로 실시간 컨텍스트(lint 결과·테스트 출력) 삽입 활용
 - [ ] Gemini: `@{file}` 주입으로 스펙·컨텍스트 파일 자동 삽입
-- [ ] Codex 부작용 명령(배포·DB 변경): `allow_implicit_invocation: false` 필수
+- [ ] Codex: `.agents/skills/{name}/SKILL.md`로 반복 워크플로 구성 (`$skill-name` 또는 `/skills`로 호출)
+- [ ] Codex 부작용 명령(배포·DB 변경): `.agents/skills/{name}/agents/openai.yaml`에 `allow_implicit_invocation: false` 설정
 - [ ] Claude: 체크리스트·가이드 텍스트 삽입에 `disable-model-invocation: true` 활용
 - [ ] `/run-skill` 패턴: Command가 Skill 로드의 진입점 역할 가능

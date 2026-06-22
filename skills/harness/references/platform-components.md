@@ -132,16 +132,16 @@ prompt = "Use the code-review-orchestrator skill for this request."
 
 ## Skill → SubAgent 연결 심화 (Claude Code)
 
-### `context:fork` 패턴
+### `context` 옵션 패턴
 
-클로드 코드 에이전트 팀에서 오케스트레이터가 **현재 컨텍스트를 서브에이전트에 전달**할 때 `context:fork` 옵션을 사용한다.
+Claude Code 서브에이전트(`Agent` 도구) 호출 시 **현재 컨텍스트를 어떻게 전달할지** 결정한다.
 
-```python
-# 오케스트레이터 스킬이 지시하는 패턴
-result = await TeamCreate(
-    agent="qa-agent",
-    prompt=f"다음 분석 결과 기반으로 QA를 수행: {analysis_result}",
-    context="fork"   # 현재 컨텍스트를 복사해 서브에이전트로 전달
+```markdown
+# 오케스트레이터 스킬 지시 예시 (Agent 도구 파라미터)
+Agent(
+  subagent_type: "qa-agent",
+  prompt: "다음 분석 결과 기반으로 QA를 수행: [이전 산출물 경로]",
+  context: "fork"   ← 현재 컨텍스트를 복사해 서브에이전트로 전달
 )
 ```
 
@@ -152,6 +152,38 @@ result = await TeamCreate(
 | 기본값 | 플랫폼 정책에 따라 다름 | 빠른 병렬 작업 |
 
 **원칙:** 서브에이전트가 이전 단계 결과를 알아야 하면 `fork`, 완전히 독립적이면 `empty`.
+
+> **주의:** `context` 옵션은 `Agent` 도구(서브에이전트 단독 호출)에 적용한다. `TeamCreate`는 `members` 배열로 팀을 구성하며 별도의 context 파라미터를 사용하지 않는다.
+
+### SKILL.md frontmatter `context: fork` + `agent:` 패턴 (Claude Code)
+
+스킬 자체가 **격리된 서브에이전트로 실행**되어야 할 때 SKILL.md frontmatter에 선언한다. 오케스트레이터가 `Agent` 도구를 명시적으로 호출하는 대신, 스킬이 트리거될 때 자동으로 포크된 컨텍스트에서 실행된다.
+
+```markdown
+---
+name: deep-research
+description: 코드베이스·웹에서 주제를 심층 조사. 리서치, 조사 요청 시 사용.
+context: fork    ← 현재 컨텍스트를 복사한 격리 인스턴스에서 실행
+agent: Explore   ← 실행에 사용할 에이전트 타입 (Explore = 읽기 전용)
+---
+
+Research {{topic}} thoroughly:
+1. Search codebase and authoritative web sources
+2. Cross-check conflicting claims
+3. Return structured report with file:line citations
+```
+
+**호출:** `/deep-research authentication flow` — Explore 에이전트가 격리 컨텍스트에서 실행되어 메인 컨텍스트를 오염시키지 않는다.
+
+| frontmatter 키 | 값 | 설명 |
+|---------------|-----|------|
+| `context` | `fork` | 현재 컨텍스트 복사 전달 (히스토리·결과 공유 필요 시) |
+| `context` | `empty` | 빈 컨텍스트로 시작 (완전 격리, 토큰 절약) |
+| `agent` | `Explore` / `Plan` / `{custom-name}` | 실행 에이전트 타입 |
+
+> **`Agent` 도구 vs SKILL.md frontmatter:** 오케스트레이터가 프로그래밍적으로 서브에이전트를 제어할 때는 `Agent` 도구 파라미터로 `context`를 지정하고, 스킬 자체가 항상 격리 실행되어야 할 때는 SKILL.md frontmatter에 선언한다.
+
+---
 
 ### Handoff Artifacts 패턴
 

@@ -30,8 +30,11 @@ description: {one-line role for Task routing}
 ---
 name: {name}
 description: {trigger description}
-tools: Read, Grep, Glob, Write, Edit
-model: opus
+tools: Read, Grep, Glob, Write, Edit   # 선택 — 도구 접근 제한
+model: opus                             # 선택 — 기본 opus 권장
+skills:                                 # 선택 — 에이전트 시작 시 사전 로드할 스킬
+  - {skill-name-1}
+  - {skill-name-2}
 ---
 
 # {Title}
@@ -44,18 +47,34 @@ model: opus
 - Output: _workspace/02_{artifact}.md
 ```
 
+> **`skills:` frontmatter:** 나열된 스킬은 에이전트 시작 시 참조 자료로 자동 로드된다. 에이전트가 특정 방법론·패턴 문서를 항상 참조해야 할 때 사용한다.
+
 ## Codex Agent (`.codex/agents/{name}.toml`)
 
 ```toml
 name = "{name}"
 description = "{one-line role — used for spawn routing}"
 
+# 선택 옵션
+model = "gpt-5.4"                     # 기본값 생략 가능
+model_reasoning_effort = "high"        # low | medium | high
+sandbox_mode = "read-only"             # 쓰기 방지 (탐색 전용 에이전트에 권장)
+nickname_candidates = ["Atlas", "Delta"] # 멀티 에이전트 식별용 별칭
+
 [developer_instructions]
 instructions = """
 You are {role}. Read artifacts/00-input.md. Write artifacts/02_{artifact}.md.
 Follow project AGENTS.md. Do not spawn subagents unless asked.
 """
+
+# 특정 스킬 비활성화 (선택)
+[[skills.config]]
+path = ".agents/skills/{skill-name}/SKILL.md"
+enabled = false
 ```
+
+> **`sandbox_mode = "read-only"`**: 파일 수정 없이 탐색·분석만 하는 에이전트(PR 탐색, 코드 매핑 등)에 적용하여 의도치 않은 변경을 방지한다.  
+> **`[[skills.config]]`**: 해당 에이전트에서만 특정 스킬을 비활성화할 때 사용한다.
 
 ## Skill (공통 — `.agents/skills/{name}/SKILL.md`)
 

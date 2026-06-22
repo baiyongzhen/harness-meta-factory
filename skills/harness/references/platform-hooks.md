@@ -240,8 +240,3 @@ if __name__ == "__main__":
 **품질 게이트 (Cursor 필수):**
 - [ ] `check-doc-sync.sh` — `afterFileEdit`에 등록 (Doc Writer 연동)
 - [ ] `lint-check.sh` — 언어별 linter 실행
-
-**Continuous Learning (learning 포함 요청 시):**
-- [ ] `observe.py` — `PostToolUse` / `afterFileEdit` 이벤트에 등록
-- [ ] `compact-suggest.py` — Claude Code `PreToolUse(Edit/Write)`에 등록
-- [ ] 상세: `references/platform-learning.md`

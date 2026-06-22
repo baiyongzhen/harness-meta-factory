@@ -210,7 +210,79 @@ Phase별로 다른 전문가 조합이 필요하면, 이전 팀의 산출물을 
 
 **원칙:** 모든 에이전트는 반드시 `.claude/agents/{name}.md` 파일로 정의한다. 빌트인 타입이라도 에이전트 정의 파일을 생성하여 역할·원칙·프로토콜을 명시한다. 파일로 존재해야 다음 세션에서 재사용 가능하고, 팀 통신 프로토콜이 명시되어야 협업 품질이 보장된다.
 
-**모델:** 모든 에이전트는 `model: "opus"`를 사용한다. Agent 도구 호출 시 반드시 `model: "opus"` 파라미터를 명시한다.
+**모델:** 작업 복잡도에 따라 모델을 선택한다. 아래 "모델 선택 가이드" 참조.
+
+## 모델 선택 가이드 (비용·성능 최적화)
+
+모든 작업에 Opus를 사용할 필요는 없다. `CLAUDE_CODE_SUBAGENT_MODEL`을 활용한 전략적 라우팅으로 비용을 절감하면서 필요한 곳에만 고추론 모델을 투입한다.
+
+### 작업별 권장 모델
+
+| 작업 유형 | 권장 모델 | 전략적 이유 |
+|----------|----------|-----------|
+| 탐색 및 파일 검색 | `haiku` | 가장 빠르고 저렴. 단순 텍스트 매칭 및 파일 구조 파악에 최적화. |
+| 문서 작성 | `haiku` | 구조가 단순하고 컨텍스트 깊이가 얕은 텍스트 생성 작업. |
+| 일반 코딩 (전체 작업의 90%) | `sonnet` | 지능과 속도의 완벽한 밸런스. 비용 대비 최고의 성능. |
+| 아키텍처 설계 / 보안 리뷰 | `opus` | 취약점을 놓치지 않는 깊은 추론 능력이 필수적인 크리티컬 패스. |
+| 복잡한 디버깅 | `opus` | 전체 시스템 맥락에 대한 이해와 높은 수준의 논리 전개 필요. |
+
+### 모델 결정 우선순위
+
+에이전트 실행 시 모델은 다음 순서로 결정된다:
+
+```
+1. ENV (CLAUDE_CODE_SUBAGENT_MODEL)   ← 환경변수로 전체 강제 적용
+2. CLI 호출 플래그                     ← 실행 시 --model 플래그
+3. Agent Frontmatter (YAML)           ← .claude/agents/{name}.md의 model: 값
+4. Main 대화 모델                      ← 부모 세션 모델 (fallback)
+```
+
+에이전트 파일에 `model:`을 명시하지 않으면 부모 세션 모델을 상속한다. **명시 권장** — 팀원마다 적합한 모델이 다르므로 에이전트 파일에 고정한다.
+
+### 하네스 팀 구성 예시
+
+```markdown
+# 탐색 전용 — docs-lookup.md
+---
+name: docs-lookup
+model: haiku
+tools: Read, Grep, Glob
+---
+
+# 일반 구현 — api-implementer.md
+---
+name: api-implementer
+model: sonnet
+---
+
+# 아키텍처 설계 — planner.md
+---
+name: planner
+model: opus
+tools: Read, Grep, Glob
+---
+
+# 보안 리뷰 — security-reviewer.md
+---
+name: security-reviewer
+model: opus
+tools: Read, Grep, Glob
+skills:
+  - vulnerability-patterns
+---
+```
+
+### 환경변수 활용 (전체 강제 적용)
+
+```bash
+# 개발 환경: 비용 절감 (전체 sonnet으로)
+export CLAUDE_CODE_SUBAGENT_MODEL=claude-sonnet-4-5
+
+# 크리티컬 작업: 전체 opus로 강제
+export CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-5
+```
+
+`CLAUDE_CODE_SUBAGENT_MODEL`은 에이전트 파일의 `model:` 보다 우선하므로, 특정 작업에서 전체 팀의 모델을 일시적으로 변경할 때 유용하다.
 
 ## 에이전트 정의 구조
 
@@ -218,6 +290,10 @@ Phase별로 다른 전문가 조합이 필요하면, 이전 팀의 산출물을 
 ---
 name: agent-name
 description: "1-2문장 역할 설명. 트리거 키워드 나열."
+tools: Read, Grep, Glob, Write, Edit   # 선택 — 접근 도구 제한
+model: opus                             # 선택 — 기본 opus 권장
+skills:                                 # 선택 — 시작 시 사전 로드할 스킬 목록
+  - skill-name-1
 ---
 
 # Agent Name — 역할 한줄 요약
