@@ -6,8 +6,8 @@
 
 | 항목 | Claude Code | Cursor | Gemini CLI | Codex |
 |------|-------------|--------|------------|-------|
-| **팀 실행** | `TeamCreate` + `SendMessage` + `TaskCreate` | **Task** 도구 | Subagents (실험) + skill 체인 | **명시적 spawn** |
-| **경량 위임** | `Agent` 도구 | Task (`subagent_type`) | skill 체인 | spawn + `.toml` agents |
+| **팀 실행** | Agent 도구(팀원 spawn) + `SendMessage` + `TaskCreate` | **Task** 도구 | Subagents (GA) + skill 체인 | **명시적 spawn** |
+| **경량 위임** | `Agent` 도구 | Task (agent 이름/`/name`) | skill 체인 / `.gemini/agents/*.md` | spawn + `.toml` agents |
 | **팀원 통신** | `SendMessage` | 없음 → **파일 핸드오프** | 제한적 | 없음 → 부모 통합 |
 | **작업 목록** | `TaskCreate` | `artifacts/task-board.md` | `artifacts/task-board.md` | CSV batch (실험) |
 | **Handoff** | `_workspace/` | `artifacts/` | `artifacts/` | `artifacts/` |
@@ -28,7 +28,7 @@
 ## Claude Code — Fan-out 예시
 
 ```
-TeamCreate → TaskCreate(T01-T03) → SendMessage(to: each) → Read _workspace/02_*.md → final_report.md
+Agent(팀원 spawn × N) → TaskCreate(T01-T03) → SendMessage(to: each) → Read _workspace/02_*.md → final_report.md
 ```
 
 사전 요구: `.claude/settings.json` → `"env": {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"}` (템플릿: `references/component-templates.md` "Claude Settings")
@@ -36,11 +36,11 @@ TeamCreate → TaskCreate(T01-T03) → SendMessage(to: each) → Read _workspace
 ## Cursor — Fan-out 예시
 
 ```
-Read(.cursor/agents/{name}.md) → Task(subagent_type, prompt에 역할 삽입) × N 병렬
+Read(.cursor/agents/{name}.md) → Task(agent 이름 호출, prompt에 역할 삽입) × N 병렬
 → Read artifacts/02_*.md → artifacts/final-report.md
 ```
 
-**필수:** Task 전 agent 파일 Read → prompt에 전문 삽입. `TeamCreate`/`SendMessage` 사용 금지.
+**필수:** Task 전 agent 파일 Read → prompt에 전문 삽입. Claude 팀 API(`SendMessage`/`TaskCreate`) 사용 금지. (`subagent_type`은 호출 인자가 아니라 Cursor 훅 payload 필드)
 
 ## Gemini CLI — Fan-out 예시
 
@@ -49,7 +49,7 @@ Read(.cursor/agents/{name}.md) → Task(subagent_type, prompt에 역할 삽입) 
 → artifacts/final-report.md
 ```
 
-Subagents는 실험 기능. skill 체인 + `artifacts/`가 안정적 기본값.
+Subagents는 GA(기본 활성). `.gemini/agents/*.md`로 위임하거나, skill 체인 + `artifacts/`를 사용한다.
 
 ## Codex — Fan-out 예시
 
@@ -71,7 +71,7 @@ max_depth = 1
 ```
 에이전트 2명 이상?
 ├── Yes → 교차 검증·실시간 피드백 필요?
-│         ├── Claude: Agent Team (TeamCreate)
+│         ├── Claude: Agent Team (Agent 도구로 팀원 spawn + SendMessage)
 │         ├── Cursor/Gemini/Codex: orchestrator + 병렬 Task/spawn/skill
 │         └── No → Sub-agent (경량)
 └── No → 단일 agent 또는 skill만
@@ -85,6 +85,8 @@ max_depth = 1
 | 1 | input + task-board 작성 (아카이브 후 빈 handoff 디렉터리에 생성) |
 | 2 | Fan-out (병렬 agent/spawn/task) |
 | 3 | Fan-in (통합 + conflicts + final-report + handoff) |
+
+> 위는 **요약 4단계(0–3)**다. `orchestrator-template.md` 템플릿 A는 같은 흐름을 **6단계(0–5)**로 세분화(Phase 2=팀 구성, Phase 5=정리 분리)한다. 두 문서를 교차 참조할 때 Phase 번호가 1:1로 대응하지 않음에 유의.
 
 **Phase 0 분기 조건 (플랫폼 공통):**
 

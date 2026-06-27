@@ -6,7 +6,7 @@
 
 ### 에이전트 팀 (Agent Teams) — 기본 모드
 
-팀 리더가 `TeamCreate`로 팀을 구성하고, 팀원들은 독립적인 Claude Code 인스턴스로 실행된다. 팀원들은 `SendMessage`로 직접 통신하고, 공유 작업 목록(`TaskCreate`/`TaskUpdate`)으로 자체 조율한다.
+팀 리더가 **Agent 도구로 팀원을 spawn**하여 팀을 구성하고, 팀원들은 독립적인 Claude Code 인스턴스로 실행된다. 팀원들은 `SendMessage`로 직접 통신하고, 공유 작업 목록(`TaskCreate`/`TaskUpdate`)으로 자체 조율한다. (`TeamCreate` 도구는 v2.1.178에서 제거됨.)
 
 ```
 [리더] ←→ [팀원A] ←→ [팀원B]
@@ -15,7 +15,7 @@
 ```
 
 **핵심 도구:**
-- `TeamCreate`: 팀 생성 + 팀원 스폰
+- `Agent`(도구): 팀원 spawn (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` 전제)
 - `SendMessage({to: name})`: 특정 팀원에게 메시지
 - `SendMessage({to: "all"})`: 브로드캐스트 (비용 높음, 드물게)
 - `TaskCreate`/`TaskUpdate`: 공유 작업 목록 관리

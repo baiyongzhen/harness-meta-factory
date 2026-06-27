@@ -16,38 +16,37 @@
 
 ### 디렉터리 구조
 
+> `plugin.json`만 `.claude-plugin/` 안에 둔다. 구성 요소 디렉터리(`agents/`, `skills/`, `hooks/`, `commands/`)는 **플러그인 루트**에 배치하며 관례 경로로 자동 발견된다.
+
 ```
-.claude-plugin/
-├── plugin.json          # 플러그인 Manifest
-├── agents/              # 서브에이전트 정의
+my-plugin/                  # 플러그인 루트
+├── .claude-plugin/
+│   └── plugin.json         # 플러그인 Manifest (이 안에는 plugin.json만)
+├── agents/                 # 서브에이전트 정의
 │   └── {agent-name}.md
-├── skills/              # 스킬
+├── skills/                 # 스킬
 │   └── {skill-name}/
 │       └── SKILL.md
-├── hooks/               # 이벤트 훅
+├── hooks/                  # 이벤트 훅
 │   └── {hook-name}.sh
-├── commands/            # Slash Commands
+├── commands/               # Slash Commands
 │   └── {command}.md
-└── bin/                 # 실행 파일 (PATH에 추가됨)
+└── bin/                    # 실행 파일 (PATH에 추가됨)
     └── {script-name}.sh
 ```
 
 ### `plugin.json` 구조
+
+> `components`·`requires` 필드는 **존재하지 않는다.** 구성 요소는 관례 디렉터리에서 자동 발견되며, 다른 플러그인 의존은 `dependencies`로 선언한다. (비관례 경로일 때만 `agents`/`skills`/`hooks`/`commands` 키로 경로를 override.)
 
 ```json
 {
   "name": "team-harness",
   "version": "1.2.0",
   "description": "백엔드 팀 하네스 플러그인",
-  "components": {
-    "agents": ["agents/*.md"],
-    "skills": ["skills/*/SKILL.md"],
-    "hooks": ["hooks/*.sh"],
-    "commands": ["commands/*.md"]
-  },
-  "bin": ["bin/validate.sh"],
-  "requires": {
-    "claude-code": ">=1.5.0"
+  "author": { "name": "backend-team" },
+  "dependencies": {
+    "shared-harness": ">=1.0.0"
   }
 }
 ```
@@ -67,33 +66,32 @@ python scripts/validate-openapi.py "$@"
 
 ## Cursor — Marketplace 형식
 
+> Cursor 플러그인은 **npm 패키지가 아니다.** `.cursor-plugin/plugin.json` manifest를 포함한 **Git 저장소**를 Marketplace에 등록/설치한다. `package.json`의 `cursor` 필드 방식은 사용하지 않는다.
+
 ### 디렉터리 구조
 
 ```
-cursor-plugin/
-├── package.json          # npm 형식 Manifest
+my-cursor-plugin/          # Git 저장소 루트
+├── .cursor-plugin/
+│   └── plugin.json        # 플러그인 Manifest
 ├── .cursor/
 │   ├── rules/            # .mdc 규칙
+│   ├── agents/           # 서브에이전트
 │   └── skills/           # 스킬 정의
 └── README.md
 ```
 
-### `package.json`
+### `.cursor-plugin/plugin.json`
 
 ```json
 {
-  "name": "@team/cursor-harness",
+  "name": "cursor-harness",
   "version": "1.0.0",
-  "description": "팀 표준 하네스",
-  "cursor": {
-    "type": "plugin",
-    "skills": [".cursor/skills/**/*.md"],
-    "rules": [".cursor/rules/**/*.mdc"]
-  }
+  "description": "팀 표준 하네스"
 }
 ```
 
-> Cursor 플러그인은 npm 패키지로 배포하며 `npx @team/cursor-harness install` 형태로 설치.
+> 배포: Git 저장소를 Marketplace에 등록하면 사용자가 저장소 URL로 설치한다. 구성 요소(`.cursor/skills/`, `.cursor/rules/`, `.cursor/agents/`)는 관례 경로에서 자동 발견.
 
 ---
 
@@ -103,26 +101,23 @@ cursor-plugin/
 
 ```
 gemini-extension/
-├── manifest.json         # Extension Manifest
+├── gemini-extension.json # Extension Manifest (이름 고정)
 ├── skills/               # 스킬 정의
 │   └── {skill}/
 │       └── SKILL.md
-└── commands/             # Commands (.toml)
+└── commands/             # Commands (.toml) — commands/ 하위 디렉터리로 자동 발견
     └── {command}.toml
 ```
 
-### `manifest.json`
+### `gemini-extension.json`
+
+> manifest 파일 이름은 **`gemini-extension.json`** (`manifest.json` 아님). `components` 필드는 없으며, commands는 `commands/` 하위 디렉터리에서 자동 발견된다.
 
 ```json
 {
   "name": "data-pipeline-harness",
   "version": "2.0.0",
-  "description": "데이터 파이프라인 팀 Extension",
-  "components": {
-    "skills": "skills/",
-    "commands": "commands/"
-  },
-  "geminiVersion": ">=1.3.0"
+  "description": "데이터 파이프라인 팀 Extension"
 }
 ```
 
@@ -132,13 +127,16 @@ gemini-extension/
 
 ### 디렉터리 구조
 
+> Codex 에이전트는 **`.toml`** 형식이다. 플러그인 내부에서 `.md`로 두면 Codex가 에이전트를 인식하지 못한다. 또한 Codex에는 **별도 commands 폴더가 없다** — 반복 워크플로 단축키는 `skills/`(`$skill-name`)로 제공한다.
+
 ```
 .codex-plugin/
 ├── plugin.json           # Manifest
 ├── agents/               # 에이전트 정의
-│   └── {agent}.md
-└── commands/             # Commands
-    └── {command}.md
+│   └── {agent}.toml
+└── skills/               # 단축 워크플로 (commands 폴더 없음)
+    └── {skill}/
+        └── SKILL.md
 ```
 
 ### `plugin.json`
@@ -147,11 +145,7 @@ gemini-extension/
 {
   "name": "codex-team-harness",
   "version": "1.0.0",
-  "description": "팀 Codex 플러그인",
-  "components": {
-    "agents": ["agents/*.md"],
-    "commands": ["commands/*.md"]
-  }
+  "description": "팀 Codex 플러그인"
 }
 ```
 
@@ -163,19 +157,19 @@ gemini-extension/
 
 ```
 plugins/
-├── claude/               # .claude-plugin/
-│   ├── plugin.json
+├── claude/               # 루트에 .claude-plugin/plugin.json + 루트 컴포넌트 디렉터리
+│   ├── .claude-plugin/plugin.json
 │   ├── agents/
 │   └── skills/
-├── cursor/               # Cursor Marketplace
-│   ├── package.json
+├── cursor/               # Cursor Marketplace (Git 저장소)
+│   ├── .cursor-plugin/plugin.json
 │   └── .cursor/
 ├── gemini/               # Gemini Extensions
-│   ├── manifest.json
+│   ├── gemini-extension.json
 │   └── skills/
 └── codex/                # .codex-plugin/
     ├── plugin.json
-    └── agents/
+    └── agents/{name}.toml
 ```
 
 **공유 스킬:** 내용이 동일하면 심볼릭 링크 또는 빌드 스크립트로 중복 제거.
@@ -206,9 +200,9 @@ plugins/
 
 ## Plugin 체크리스트
 
-- [ ] `plugin.json` / `package.json` 에 `version`, `description` 명시
-- [ ] Claude: `bin/` 실행 파일에 `#!/bin/bash` + `chmod +x` 적용
+- [ ] manifest(`plugin.json` / `.cursor-plugin/plugin.json` / `gemini-extension.json`)에 `version`, `description` 명시
+- [ ] Claude: 컴포넌트 디렉터리는 **루트**, `plugin.json`만 `.claude-plugin/`. `bin/` 실행 파일에 `#!/bin/bash` + `chmod +x`
+- [ ] Cursor: npm 아님 — Git 저장소 + `.cursor-plugin/plugin.json`로 Marketplace 배포
+- [ ] Codex: 에이전트는 `.toml`(`.md` 아님), commands 폴더 없음(skills로 대체)
 - [ ] 멀티플랫폼: `plugins/` 디렉터리 구조로 통합 관리
 - [ ] Breaking change 시 Major 버전 올림 + CHANGELOG 기록
-- [ ] 설치 스크립트(`install.sh`) 또는 npm 지원 명시
-- [ ] 선택: Codex `.codex-plugin/agents/` 에 Subagent 포함 가능

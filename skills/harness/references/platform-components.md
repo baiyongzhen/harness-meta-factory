@@ -15,7 +15,7 @@
 
 ### 에이전트 팀 필수 설정
 
-`TeamCreate` / `SendMessage` 를 사용하는 하네스는 반드시 이 설정을 포함해야 한다.
+**Agent 도구 + `SendMessage`** 기반 에이전트 팀을 사용하는 하네스는 반드시 이 설정을 포함해야 한다.
 환경변수를 셸에서 직접 설정하면 세션마다 수동 설정이 필요하지만, `settings.json`에 기록하면 프로젝트를 열 때 자동 적용된다.
 
 ```json
@@ -26,7 +26,7 @@
 }
 ```
 
-> ⚠️ `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` 없이 `TeamCreate`를 호출하면 오류 발생.
+> ⚠️ `TeamCreate` 도구는 v2.1.178에서 **제거**되었다. 팀원은 **Agent 도구**로 생성하고, `SendMessage`/`TaskCreate`로 통신·작업 분배한다. `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` 없이 팀 기능을 호출하면 오류 발생.
 
 ### 권한 제어 패턴
 
@@ -91,7 +91,7 @@ alwaysApply: true
 
 | 플랫폼 | 설정 파일 | 주요 이벤트 |
 |--------|-----------|-------------|
-| Claude | `.claude/hooks/hooks.json` | SessionStart, PreToolUse, PostToolUse, Stop |
+| Claude | `.claude/settings.json` → `hooks` 키 | SessionStart, PreToolUse, PostToolUse, Stop |
 | Cursor | `.cursor/hooks.json` | sessionStart, beforeShellExecution, afterFileEdit, subagentStart/Stop, stop |
 | Gemini | `.gemini/settings.json` | SessionStart, BeforeTool, AfterTool, SessionEnd |
 | Codex | `.codex/hooks.json` | SessionStart, PreToolUse, PostToolUse, SubagentStart/Stop, Stop |
@@ -139,7 +139,7 @@ prompt = "Use the code-review-orchestrator skill for this request."
 
 ### Claude 연결 패턴
 
-1. `.claude/skills/{domain}-orchestrator/SKILL.md` — TeamCreate/SendMessage
+1. `.claude/skills/{domain}-orchestrator/SKILL.md` — Agent 도구 spawn + SendMessage
 2. `.claude/agents/{name}.md` — frontmatter + tools/skills
 
 ## 공통 Skill + scripts (Agent Skills 표준)
@@ -196,28 +196,34 @@ prompt = "Use the code-review-orchestrator skill for this request."
 
 ## Skill → SubAgent 연결 심화 (Claude Code)
 
-### `context` 옵션 패턴
+### 컨텍스트 전달 패턴 (`Agent` 도구)
 
-Claude Code 서브에이전트(`Agent` 도구) 호출 시 **현재 컨텍스트를 어떻게 전달할지** 결정한다.
+Claude Code 서브에이전트(`Agent` 도구)는 **`context: "fork"/"empty"` 같은 파라미터가 없다.** 컨텍스트 전달은 다음 두 축으로 제어한다.
 
 ```markdown
 # 오케스트레이터 스킬 지시 예시 (Agent 도구 파라미터)
 Agent(
+  subagent_type: "fork",     ← 부모 컨텍스트·모델을 그대로 상속 (현재 히스토리 공유)
+  prompt: "다음 분석 결과 기반으로 QA를 수행: [이전 산출물 경로]"
+)
+
+# 독립 서브에이전트 — 새 Agent 호출은 항상 빈 상태로 시작
+Agent(
   subagent_type: "qa-agent",
-  prompt: "다음 분석 결과 기반으로 QA를 수행: [이전 산출물 경로]",
-  context: "fork"   ← 현재 컨텍스트를 복사해 서브에이전트로 전달
+  prompt: "`artifacts/analysis.json`을 읽고 QA 수행",
+  isolation: "worktree"      ← (선택) 파일을 병렬 변경할 때만 격리 워크트리 사용
 )
 ```
 
-| context 옵션 | 설명 | 적합 상황 |
-|-------------|------|----------|
-| `fork` | 현재 컨텍스트 복사 전달 | 이전 분석 결과·히스토리 필요 |
-| `empty` | 빈 컨텍스트로 시작 | 독립적 서브태스크, 토큰 절약 |
-| 기본값 | 플랫폼 정책에 따라 다름 | 빠른 병렬 작업 |
+| 제어 | 의미 | 적합 상황 |
+|------|------|----------|
+| `subagent_type: "fork"` | 부모 컨텍스트·모델 상속 (포크) | 이전 분석 결과·히스토리 필요 |
+| 일반 `subagent_type` (새 Agent 호출) | 빈 컨텍스트로 시작 | 독립적 서브태스크, 토큰 절약 |
+| `isolation: "worktree"` | 격리된 git 워크트리에서 실행 | 여러 에이전트가 파일을 병렬 수정 |
 
-**원칙:** 서브에이전트가 이전 단계 결과를 알아야 하면 `fork`, 완전히 독립적이면 `empty`.
+**원칙:** 서브에이전트가 이전 단계 결과를 알아야 하면 `subagent_type: "fork"`, 완전히 독립적이면 새 Agent 호출(빈 상태) + 필요한 입력만 prompt/파일로 전달.
 
-> **주의:** `context` 옵션은 `Agent` 도구(서브에이전트 단독 호출)에 적용한다. `TeamCreate`는 `members` 배열로 팀을 구성하며 별도의 context 파라미터를 사용하지 않는다.
+> **주의:** `fork`는 **파라미터가 아니라 subagent type**이며, 파일시스템 격리는 `isolation: "worktree"`로 별도 지정한다. (단, SKILL.md frontmatter의 `context: fork` + `agent:` 선언은 유효 — 아래 참조.)
 
 ### SKILL.md frontmatter `context: fork` + `agent:` 패턴 (Claude Code)
 
@@ -251,7 +257,7 @@ Research {{topic}} thoroughly:
 
 ### Handoff Artifacts 패턴
 
-`context:empty` 사용 시, 이전 에이전트의 결과를 파일로 전달:
+독립(빈 컨텍스트) 서브에이전트를 쓸 때는, 이전 에이전트의 결과를 파일로 전달:
 
 ```
 오케스트레이터 작성                         서브에이전트 읽기
@@ -262,8 +268,7 @@ artifacts/qa-report.md            ←   서브에이전트가 작성
 ```markdown
 # 오케스트레이터 스킬 지시 예시
 1. 분석 결과를 `_workspace/analysis-result.json` 에 저장
-2. QA 에이전트 생성:
-   - context: empty
+2. QA 에이전트 생성 (독립 Agent 호출 — 빈 컨텍스트):
    - prompt: "`_workspace/analysis-result.json` 읽고 QA 수행, 결과는 `artifacts/qa-report.md`"
 3. 완료 후 `artifacts/qa-report.md` 수집
 ```

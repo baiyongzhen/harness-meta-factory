@@ -8,8 +8,8 @@
 |-----------|-------------|--------|------------|-------|
 | **Rules** | `CLAUDE.md` | `.cursor/rules/*.mdc` | `GEMINI.md` | `AGENTS.md` |
 | **Commands** | skill 통합 (`.claude/commands/` 레거시) | skill 권장 (`.cursor/commands/` 레거시) | `.gemini/commands/*.toml` | `/skills`, `$skill-name` |
-| **Hooks** | `.claude/hooks/hooks.json` | `.cursor/hooks.json` | `.gemini/settings.json` → hooks | `.codex/hooks.json` |
-| **Sub agent** | `.claude/agents/*.md` | `.cursor/agents/*.md` | Subagents (실험) | `.codex/agents/*.toml` |
+| **Hooks** | `.claude/settings.json` → `hooks` | `.cursor/hooks.json` | `.gemini/settings.json` → hooks | `.codex/hooks.json` 또는 `.codex/config.toml [hooks]` |
+| **Sub agent** | `.claude/agents/*.md` | `.cursor/agents/*.md` | `.gemini/agents/*.md` (GA) | `.codex/agents/*.toml` |
 | **Skill** | `.claude/skills/` | `.cursor/skills/` + `.agents/skills/` | `.gemini/skills/` + `.agents/skills/` | `.agents/skills/` |
 | **Handoff** | `_workspace/` | `artifacts/` | `artifacts/` | `artifacts/` |
 | **Entry** | `CLAUDE.md` | `AGENTS.md` | `GEMINI.md` | `AGENTS.md` |
@@ -34,14 +34,15 @@ your-project/
 ├── CLAUDE.md
 ├── _workspace/
 └── .claude/
-    ├── settings.json          ← 환경변수·권한·모델 설정 (에이전트 팀 env 포함)
+    ├── settings.json          ← 환경변수·권한·모델·훅 설정 (에이전트 팀 env 포함)
     ├── agents/{name}.md
     ├── skills/{name}/SKILL.md
-    └── hooks/hooks.json
+    └── hooks/*.sh             ← 스크립트 (등록은 settings.json "hooks" 키)
 ```
 
 **`.claude/settings.json` 생성 조건:**
-- 에이전트 팀(TeamCreate/SendMessage) 사용 시 → `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 필수
+- 에이전트 팀(Agent 도구 + SendMessage) 사용 시 → `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 필수
+- 훅 등록 시 → `"hooks"` 키 (스크립트만 `.claude/hooks/`에 배치)
 - 도구 접근 제한이 필요한 에이전트 포함 시 → `permissions` 설정
 - 프로젝트 전용 환경변수(API 키 제외) 주입 시 → `env` 사용
 
@@ -74,8 +75,10 @@ your-project/
 ├── GEMINI.md
 ├── artifacts/
 └── .gemini/
-    ├── settings.json
+    ├── settings.json          ← 훅 등록은 "hooks" 키
+    ├── agents/{name}.md        ← Subagents (GA, Markdown+frontmatter)
     ├── commands/{name}.toml
+    ├── hooks/*.sh              ← 훅 스크립트
     └── skills/{name}/SKILL.md
 ```
 
@@ -103,7 +106,7 @@ your-project/
 
 | 하지 말 것 | 이유 |
 |-----------|------|
-| Cursor에 `TeamCreate`/`SendMessage` | Cursor API 없음 |
+| Cursor에 Claude 팀 API(`SendMessage`/`TaskCreate`) | Cursor에 해당 API 없음 |
 | Cursor에 `_workspace/` | `artifacts/` 사용 |
 | Claude harness에 `.cursor/` 경로 | 런타임 불일치 |
 | Codex에 `.claude/agents/`만 두기 | `.codex/agents/*.toml` 필요 |

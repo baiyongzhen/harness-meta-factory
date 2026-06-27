@@ -176,14 +176,15 @@ prompt = """
 """
 ```
 
-### `allow_tools` — 허용 도구 제한
+### 도구 제한 — command 레벨 필드 없음
+
+> ⚠️ Gemini command TOML에는 **`allow_tools` 같은 도구 제한 필드가 없다.** command 스키마는 `description`/`prompt`(+ `name`)뿐이다. 도구 접근 제한은 **전역 설정(`.gemini/settings.json`) 또는 MCP 서버 레벨**에서 한다. 읽기 전용 리뷰가 필요하면 프롬프트로 "수정 없이 의견만"을 지시하고, 강제 제한은 전역/훅에서 처리한다.
 
 ```toml
 name = "safe-review"
 description = "읽기 전용 리뷰 (수정 없음)"
-allow_tools = ["ReadFile", "ListDirectory"]   # 쓰기 도구 제외
 prompt = """
-@{src/} 코드 품질 리뷰. 수정 없이 의견만 출력.
+@{src/} 코드 품질 리뷰. 수정하지 말고 의견만 출력.
 """
 ```
 

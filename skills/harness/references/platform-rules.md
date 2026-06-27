@@ -141,10 +141,16 @@ project/
 - SQL은 `sql/` 디렉터리, Jinja 템플릿 사용
 - 시크릿은 환경 변수만 — `.env` 커밋 금지
 
-## Skills
-- 배포: `.gemini/skills/deploy/`
-- 데이터 품질: `.gemini/skills/dq-check/`
+## 하네스: data-pipeline
+**트리거:** 파이프라인/배포/DQ 작업 요청 시 `data-pipeline-orchestrator` 스킬 사용.
+
+**변경 이력:**
+| 날짜 | 변경 내용 | 대상 | 사유 |
+|------|----------|------|------|
+| 2026-06-01 | 초기 구성 | 전체 | - |
 ```
+
+> ⚠️ Entry file 원칙(§ 상단)에 따라 GEMINI.md에 **스킬·에이전트 목록이나 디렉터리 경로를 나열하지 않는다.** 트리거 규칙 + 변경 이력만 둔다.
 
 ---
 

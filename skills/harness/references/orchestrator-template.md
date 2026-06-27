@@ -13,7 +13,7 @@
 
 ## 템플릿 A: 에이전트 팀 모드 (기본 · 최우선 선택)
 
-2명 이상의 에이전트가 협업할 때 **가장 먼저 검토하는 기본 모드**. `TeamCreate`로 팀을 구성하고, 공유 작업 목록과 `SendMessage`로 조율한다.
+2명 이상의 에이전트가 협업할 때 **가장 먼저 검토하는 기본 모드**. **Agent 도구로 팀원을 spawn**하여 팀을 구성하고, 공유 작업 목록과 `SendMessage`로 조율한다. (`TeamCreate` 도구는 v2.1.178에서 제거됨.)
 
 ```markdown
 ---
@@ -42,7 +42,7 @@ description: "{도메인} 에이전트 팀을 조율하는 오케스트레이터
 > **Claude Code:** handoff 디렉터리는 `_workspace/`, 아카이브는 `_workspace_archive/{YYYYMMDD_HHMMSS}/`.
 > Cursor/Gemini/Codex는 `artifacts/`, 아카이브는 `artifacts/archive/{YYYYMMDD_HHMMSS}/` — `references/platform-orchestration.md` 참조.
 >
-> ⚠️ **에이전트 팀 사전 요구:** `.claude/settings.json`에 `"env": {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"}` 설정 필요. 미설정 시 `TeamCreate` 호출 오류. 템플릿: `references/component-templates.md` "Claude Settings"
+> ⚠️ **에이전트 팀 사전 요구:** `.claude/settings.json`에 `"env": {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"}` 설정 필요. 미설정 시 팀(SendMessage/TaskCreate) 기능 오류. 템플릿: `references/component-templates.md` "Claude Settings"
 
 기존 산출물 존재 여부를 확인하여 실행 모드를 결정한다:
 
@@ -71,17 +71,16 @@ description: "{도메인} 에이전트 팀을 조율하는 오케스트레이터
 
 ### Phase 2: 팀 구성
 
-1. 팀 생성:
+1. 팀 구성 — Agent 도구로 팀원을 각각 spawn (`TeamCreate`는 제거됨):
    ```
-   TeamCreate(
-     team_name: "{domain}-team",
-     members: [
-       { name: "{teammate-1}", agent_type: "{type}", model: "opus", prompt: "{역할 설명 및 작업 지시}" },
-       { name: "{teammate-2}", agent_type: "{type}", model: "opus", prompt: "{역할 설명 및 작업 지시}" },
-       ...
-     ]
-   )
+   # 팀원마다 Agent 호출 (한 응답에 병렬로 여러 Agent 호출 가능)
+   Agent(subagent_type: "{type}", model: "opus",
+         prompt: "당신은 {teammate-1}. {역할 설명 및 작업 지시}. SendMessage로 팀원과 통신, 출력은 _workspace/02_{x}.md")
+   Agent(subagent_type: "{type}", model: "opus",
+         prompt: "당신은 {teammate-2}. {역할 설명 및 작업 지시}. ...")
+   # ...
    ```
+   > 전제: `.claude/settings.json` `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. spawn된 팀원은 `SendMessage`로 통신하고 공유 작업 목록으로 자체 조율한다.
 
 2. 작업 등록:
    ```
@@ -126,17 +125,16 @@ description: "{도메인} 에이전트 팀을 조율하는 오케스트레이터
 4. 최종 산출물 생성: `{output-path}/{filename}`
 
 ### Phase 5: 정리
-1. 팀원들에게 종료 요청 (SendMessage)
-2. 팀 정리 (TeamDelete)
-3. `_workspace/` 디렉토리 보존 (중간 산출물은 삭제하지 않음 — 사후 검증·감사 추적용)
-4. 사용자에게 결과 요약 보고
+1. 팀원들에게 종료 요청 (SendMessage) — 모든 팀원이 작업을 마치도록 확인
+2. `_workspace/` 디렉토리 보존 (중간 산출물은 삭제하지 않음 — 사후 검증·감사 추적용)
+3. 사용자에게 결과 요약 보고
 
-> **팀 재구성이 필요한 경우:** Phase별로 다른 전문가 조합이 필요하면, 현재 팀을 TeamDelete로 정리한 뒤 새 TeamCreate로 다음 Phase의 팀을 구성한다. 이전 팀의 산출물은 `_workspace/`에 보존되므로 새 팀이 Read로 접근 가능.
+> **팀 재구성이 필요한 경우:** Phase별로 다른 전문가 조합이 필요하면, 현재 팀원 작업을 마무리한 뒤 다음 Phase에 필요한 팀원을 Agent 도구로 새로 spawn한다. 이전 팀의 산출물은 `_workspace/`에 보존되므로 새 팀이 Read로 접근 가능.
 
 ## 데이터 흐름
 
 ```
-[리더] → TeamCreate → [teammate-1] ←SendMessage→ [teammate-2]
+[리더] → Agent(팀원 spawn) → [teammate-1] ←SendMessage→ [teammate-2]
                           │                           │
                           ↓                           ↓
                     artifact-1.md              artifact-2.md
@@ -265,11 +263,11 @@ Template A와 동일 — `_workspace/` 존재 여부 + 완료 마커 확인 → 
 ### Phase 3: 합의 기반 통합
 **실행 모드:** 에이전트 팀
 
-1. `TeamCreate`로 통합 팀 구성 (editor + fact-checker + synthesizer)
+1. Agent 도구로 통합 팀원 spawn (editor + fact-checker + synthesizer)
 2. `TaskCreate`로 작업 분배 — 모두 Phase 2의 `_workspace/02_*` 파일을 Read
 3. 팀원들이 `SendMessage`로 상충 데이터를 논의, 파일 기반으로 합의안 도출
 4. 최종 통합본 `_workspace/03_integrated.md` 생성
-5. `TeamDelete`로 팀 정리
+5. 팀원 작업 완료 후 다음 Phase로 진행
 
 ### Phase 4: 독립 검증
 **실행 모드:** 서브 에이전트
@@ -278,16 +276,16 @@ Template A와 동일 — `_workspace/` 존재 여부 + 완료 마커 확인 → 
 ```
 
 **하이브리드 전환 규칙:**
-- 팀 → 서브: 팀을 반드시 `TeamDelete`로 정리한 후 Agent 도구 호출
+- 팀 → 서브: 팀원 작업을 마무리한 후 독립 Agent 도구 호출
 - 서브 → 팀: 서브 에이전트의 파일 산출물을 팀원들에게 Read 경로로 전달
-- 팀 → 팀: 이전 팀을 정리한 후 새 `TeamCreate` (세션당 1팀만 활성 가능)
+- 팀 → 팀: 이전 팀원 작업을 마무리한 후 다음 팀원을 Agent로 spawn
 
 ---
 
 ## 작성 원칙
 
 1. **실행 모드를 먼저 명시** — 오케스트레이터 상단에 "에이전트 팀" / "서브 에이전트" / "하이브리드" 중 하나 명시. 하이브리드면 Phase별 모드 표 필수
-2. **팀 모드는 TeamCreate/SendMessage/TaskCreate 사용법을 구체적으로** — 팀 구성, 작업 등록, 통신 규칙
+2. **팀 모드는 Agent spawn/SendMessage/TaskCreate 사용법을 구체적으로** — 팀원 spawn, 작업 등록, 통신 규칙
 3. **서브 모드는 Agent 도구 파라미터를 완전히 명시** — name, subagent_type, prompt, run_in_background, model
 4. **파일 경로는 명확하게** — 상대 경로 금지. Claude Code는 `_workspace/` 기준; 다른 플랫폼은 `artifacts/` 기준
 5. **Phase 간 의존성 명시** — 어떤 Phase가 어떤 Phase의 결과에 의존하는지. 하이브리드는 모드 전환 지점을 특히 강조
@@ -308,5 +306,5 @@ Template A와 동일 — `_workspace/` 존재 여부 + 완료 마커 확인 → 
 ## 실제 오케스트레이터 참고
 
 팬아웃/팬인 패턴의 오케스트레이터 기본 구조:
-준비 → Phase 0(컨텍스트 확인) → TeamCreate + TaskCreate → N개 팀원 병렬 실행 → Read + 통합 → 정리.
+준비 → Phase 0(컨텍스트 확인) → Agent(팀원 spawn) + TaskCreate → N개 팀원 병렬 실행 → Read + 통합 → 정리.
 `references/team-examples.md`의 리서치 팀 예시를 참조.

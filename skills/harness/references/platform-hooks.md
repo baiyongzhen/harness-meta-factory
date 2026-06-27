@@ -12,6 +12,9 @@
 | 서브에이전트 | `PreToolUse` (Task) | `subagentStart/Stop` | — | `SubagentStart/Stop` |
 | 세션 종료 | `Stop` | `stop` | `SessionEnd` | `Stop` |
 
+> 위 표는 **대표 이벤트의 부분집합**이다. 각 플랫폼은 추가 이벤트를 지원한다(Cursor ~20종 `preToolUse`/`postToolUse` 등, Gemini `BeforeAgent`/`BeforeModel` 등). 플랫폼 공식 사양에서 전체 목록을 확인할 것.
+> Gemini는 서브에이전트 전용 훅 이벤트가 없다(`—`). 서브에이전트 모니터링이 필요하면 **skill 체인 단계별 로깅**(각 단계 시작/종료 시 stdout 기록)으로 대체한다.
+
 ## 훅 용도 패턴
 
 | 용도 | 이벤트 | 예시 |
@@ -28,7 +31,8 @@
 
 ### Claude Code
 
-**파일:** `.claude/hooks/hooks.json` + `.claude/hooks/*.sh`
+**파일:** `.claude/settings.json`의 `"hooks"` 키 + `.claude/hooks/*.sh`
+> ⚠️ `hooks/hooks.json` 경로는 **플러그인 내부에서만** 유효. 일반 프로젝트 훅은 반드시 `settings.json`에 설정.
 
 **exit code 규약:**
 - `exit 0` — 성공 (허용)
@@ -183,7 +187,7 @@ exit 0
 
 **파일:** `.codex/hooks.json` 또는 `.codex/config.toml` `[hooks]` 테이블
 
-**활성화:** `.codex/config.toml`에 `[features] hooks = true` (기본 활성)
+**활성화:** 훅은 **기본 ON**. 끄려면 `.codex/config.toml`에 `[features] hooks = false`
 
 ```json
 {

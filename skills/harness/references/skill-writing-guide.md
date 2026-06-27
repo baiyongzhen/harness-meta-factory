@@ -66,7 +66,7 @@ description: "엑셀/CSV/TSV 파일의 열 추가, 수식 계산, 서식, 차트
 | 크기 | 상태 | 조치 |
 |------|------|------|
 | ~300줄 | 이상적 | 유지 |
-| 300~450줄 | 허용 | 추가 시 references/ 분리 고려 |
+| 300~450줄 | 허용 (⚠️ 주의) | 추가 시 references/ 분리 고려 — `token-optimization.md` §7-4와 동일 기준 |
 | 450~500줄 | 경고 | 세부 내용 즉시 references/로 이동 |
 | 500줄 초과 | **위반** | 반드시 분리 — Phase 6 검증에서 차단 |
 
@@ -334,8 +334,10 @@ assertion 기반 채점 결과:
 
 ### 번들 Scripts 구조 (권장)
 
+> 멀티플랫폼 공통 scripts는 **`.agents/skills/{name}/scripts/`**(Agent Skills 오픈 표준)에 둔다. Cursor·Codex·Gemini 모두 이 경로를 스캔한다. Claude 단독 하네스만 `.claude/skills/{name}/scripts/`를 쓴다. (SKILL.md Phase 4 · `platform-components.md` 동일 기준)
+
 ```
-.claude/skills/
+.agents/skills/             # 멀티플랫폼 공통 (Claude 단독이면 .claude/skills/)
 └── {skill-name}/
     ├── SKILL.md            # 스킬 본문
     └── scripts/
